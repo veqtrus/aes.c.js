@@ -1,0 +1,15 @@
+{
+	"name": "aes.c",
+	"version": "0.1.0",
+	"description": "AES encryption and CMAC transpiled from C",
+	"author": "Paul Georgiou (https://paulgeorgiou.org/)",
+	"dependencies": {},
+	"devDependencies": {
+		"typescript": "^4.0.0",
+		"browserify": "^16.0.0"
+	},
+	"scripts": {
+		"build": "make",
+		"clean": "make clean"
+	}
+}
