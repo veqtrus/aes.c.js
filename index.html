@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>AES in the browser</title>
+	<meta name="viewport" content="width=device-width" />
+	<script type="text/javascript" src="aes-web.c.js"></script>
+	<script type="text/javascript">
+		function randomHex(id) {
+			var key = Date.now().toString(16);
+			while (key.length < 32) {
+				key += Math.floor(Math.random() * 16).toString(16);
+			}
+			var value = "";
+			while (value.length < 32) {
+				value += Math.floor(Math.random() * 16).toString(16);
+			}
+			value = AES.encrypt("ECB", key, "", value);
+			if (id) {
+				document.getElementById(id).value = value;
+			}
+			return value;
+		}
+
+		function xorHex(a, b) {
+			var n = Math.max(a.length, b.length);
+			var r = '';
+			for (var i = 0; i < n; i++) {
+				var p = i < a.length ? parseInt(a.charAt(i), 16) : 0;
+				var q = i < b.length ? parseInt(b.charAt(i), 16) : 0;
+				r += (p ^ q).toString(16);
+			}
+			return r;
+		}
+
+		function getInputs() {
+			function removeSpaces(str) {
+				return str.replace(/\s/g, "");
+			}
+			var result = {
+				key: removeSpaces(document.getElementById("txtKey").value),
+				iv: removeSpaces(document.getElementById("txtIV").value),
+				mode: document.getElementById("selMode").value,
+				plaintext: removeSpaces(document.getElementById("txtPlain").value),
+				ciphertext: removeSpaces(document.getElementById("txtCipher").value)
+			};
+			if (result.key.length != 32 && result.key.length != 48 && result.key.length != 64) {
+				throw new RangeError("The key must be 128, 192, or 256 bits long.");
+			}
+			if (result.iv.length != 0 && result.iv.length != 32) {
+				throw new RangeError("The IV must be 128 bits long.");
+			}
+			return result;
+		}
+
+		function setInputs(inputs) {
+			if (inputs.key) {
+				document.getElementById("txtKey").value = inputs.key;
+			}
+			if (inputs.iv) {
+				document.getElementById("txtIV").value = inputs.iv;
+			}
+			if (inputs.mode) {
+				document.getElementById("selMode").value = inputs.mode;
+			}
+			if (inputs.plaintext) {
+				document.getElementById("txtPlain").value = inputs.plaintext;
+			}
+			if (inputs.ciphertext) {
+				document.getElementById("txtCipher").value = inputs.ciphertext;
+			}
+		}
+
+		function doAES(encrypt) {
+			try {
+				var inputs = getInputs();
+				if (encrypt) {
+					inputs.ciphertext = AES.encrypt(inputs.mode, inputs.key, inputs.iv, inputs.plaintext);
+				} else {
+					inputs.plaintext = AES.decrypt(inputs.mode, inputs.key, inputs.iv, inputs.ciphertext);
+				}
+				setInputs(inputs);
+			} catch (e) {
+				alert(e);
+			}
+		}
+
+		function doCMAC() {
+			try {
+				var inputs = getInputs();
+				inputs.ciphertext = AES.cmac(inputs.key, inputs.plaintext);
+				setInputs(inputs);
+			} catch (e) {
+				alert(e);
+			}
+		}
+
+		function invertCMAC() {
+			try {
+				var inputs = getInputs();
+				var iv = inputs.iv.length == 32 ? inputs.iv : randomHex();
+				var expected = AES.decrypt("ECB", inputs.key, "", inputs.ciphertext);
+				var current = AES.decrypt("ECB", inputs.key, "", AES.cmac(inputs.key, iv));
+				inputs.plaintext = AES.decrypt("ECB", inputs.key, "", xorHex(current, expected)) + iv;
+				setInputs(inputs);
+			} catch (e) {
+				alert(e);
+			}
+		}
+	</script>
+	<style type="text/css">
+		body {
+			background-color: honeydew;
+			color: black;
+		}
+		article {
+			background-color: lightyellow;
+			max-width: 120ch;
+			padding: 1em;
+			margin: 1em;
+		}
+		input[type=text] {
+			display: block;
+			width: 80%;
+			font-family: monospace;
+		}
+	</style>
+</head>
+<body>
+	<article>
+		<h1>AES in the browser</h1>
+		<p>The input and output values must be hex-encoded.</p>
+		<div>
+			<p>
+				<label for="txtKey">Key</label>
+				<button onclick="randomHex('txtKey')">Random</button>
+				<input type="text" id="txtKey" />
+				The key must be 128, 192, or 256 bits long.
+			</p>
+			<p>
+				<label for="txtIV">Initialization Vector</label>
+				<button onclick="randomHex('txtIV')">Random</button>
+				<input type="text" id="txtIV" />
+				The 128 bit IV is required for cipher modes other than ECB.
+				For CMAC inversion it is used as a random value and can be omitted.
+			</p>
+			<p>
+				<label for="txtPlain">Plaintext</label>
+				<input type="text" id="txtPlain" />
+				In ECB and CBC modes the length must be a multiple of 128 bits.
+			</p>
+			<p>
+				<label for="txtCipher">Ciphertext/Tag</label>
+				<input type="text" id="txtCipher" />
+			</p>
+			<p>
+				<select id="selMode">
+					<option value="ECB">ECB</option>
+					<option value="CBC">CBC</option>
+					<option value="CTR">CTR</option>
+				</select>
+				<button onclick="doAES(true)">Encrypt</button>
+				<button onclick="doAES(false)">Decrypt</button>
+				<button onclick="doCMAC()">Calculate CMAC</button>
+				<button onclick="invertCMAC()">Invert CMAC</button>
+			</p>
+		</div>
+	</article>
+</body>
+</html>
